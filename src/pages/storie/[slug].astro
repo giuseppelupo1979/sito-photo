@@ -1,0 +1,46 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { StoryPage } from '../../components/StoryPage';
+import db, { getSettings } from '../../lib/db';
+
+const { slug } = Astro.params;
+const story = db.prepare('SELECT * FROM stories WHERE slug = ?').get(slug);
+const settings = getSettings();
+
+if (!story) {
+  return Astro.redirect('/');
+}
+
+const frames = db.prepare('SELECT * FROM frames WHERE story_id = ?').all(story.id);
+const fullStory = { ...story, frames };
+
+const printSizes  = (settings.print_sizes  || '30×40 cm\n40×60 cm\n50×70 cm\n60×90 cm').split('\n').map(s => s.trim()).filter(Boolean);
+const printPapers = (settings.print_papers || 'Baryta\nCotton Rag').split('\n').map(s => s.trim()).filter(Boolean);
+const printEdition      = settings.print_edition      || '8';
+const printResponseTime = settings.print_response_time || 'entro 48 ore';
+const printIntro        = settings.print_intro         || '';
+---
+
+<BaseLayout title={`${story.title} — Giuseppe Lupo`}>
+  <main>
+    <StoryPage
+      story={fullStory}
+      client:load
+      email={settings.email}
+      igHandle={settings.ig_handle}
+      printSizes={printSizes}
+      printPapers={printPapers}
+      printEdition={printEdition}
+      printResponseTime={printResponseTime}
+      printIntro={printIntro}
+    />
+  </main>
+</BaseLayout>
+
+<style>
+  main {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+</style>

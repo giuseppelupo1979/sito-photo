@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { HomeSheet } from '../components/HomeSheet';
+import db, { getSettings } from '../lib/db';
+
+const stories = db.prepare('SELECT * FROM stories').all();
+const frames = db.prepare('SELECT * FROM frames').all();
+const settings = getSettings();
+
+// Construct SHEET from DB
+let sheet = frames.map(f => ({
+  ...f,
+  storySlug: stories.find(s => s.id === f.story_id)?.slug || '',
+  storyCat: stories.find(s => s.id === f.story_id)?.cat || ''
+}));
+
+// Pad to 24 if necessary
+while (sheet.length < 24 && sheet.length > 0) {
+  sheet.push({ ...sheet[sheet.length % frames.length], n: '—' });
+}
+---
+
+<BaseLayout title="Giuseppe Lupo — fotografo">
+	<main>
+		<HomeSheet 
+			client:load 
+			initialStories={stories} 
+			initialSheet={sheet} 
+			email={settings.email}
+			igHandle={settings.ig_handle}
+		/>
+	</main>
+</BaseLayout>
+
+<style>
+	main {
+		width: 100%;
+		height: 100vh;
+		overflow: hidden;
+	}
+</style>

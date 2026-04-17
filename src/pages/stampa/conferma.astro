@@ -1,0 +1,189 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const { name, story, size, paper } = Astro.url.searchParams
+  ? Object.fromEntries(Astro.url.searchParams)
+  : ({} as Record<string, string>);
+---
+
+<BaseLayout title="Richiesta ricevuta — Giuseppe Lupo">
+  <div class="page">
+
+    <a href="/" class="back">← TORNA AL PROVINO</a>
+
+    <div class="card">
+      <div class="eyebrow">◆ RICHIESTA STAMPA FINE ART</div>
+
+      <div class="checkmark">✓</div>
+
+      <h1 class="serif">Richiesta ricevuta.</h1>
+
+      <p class="subtitle">
+        Grazie{name ? `, <strong>${name}</strong>` : ''}. Ti risponderò al più presto per confermare i dettagli.
+      </p>
+
+      {(story || size || paper) && (
+        <div class="summary">
+          <div class="summary-title">RIEPILOGO RICHIESTA</div>
+          <div class="summary-grid">
+            {story && <><span>STORIA</span><span>{story}</span></>}
+            {size  && <><span>FORMATO</span><span>{size}</span></>}
+            {paper && <><span>CARTA</span><span>{paper}</span></>}
+          </div>
+        </div>
+      )}
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-n">01</div>
+          <div>
+            <div class="step-title">Ricevi conferma</div>
+            <div class="step-body">Ti scriverò via email per concordare dimensioni definitive, eventuale dedica e modalità di spedizione.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">02</div>
+          <div>
+            <div class="step-title">Produzione</div>
+            <div class="step-body">La stampa viene prodotta su misura in laboratorio professionale. Ogni copia è numerata e firmata a mano.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">03</div>
+          <div>
+            <div class="step-title">Spedizione</div>
+            <div class="step-body">Imballaggio museale anti-UV con tubo rigido o flat-pack su forex. Tracciabile con numero di tracking.</div>
+          </div>
+        </div>
+      </div>
+
+      <a href="/" class="cta">ESPLORA ALTRE STORIE →</a>
+    </div>
+
+  </div>
+</BaseLayout>
+
+<style>
+  .page {
+    min-height: 100vh;
+    background: var(--bg-home);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+  }
+
+  .back {
+    position: fixed;
+    top: 28px;
+    left: 44px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-45);
+    text-decoration: none;
+  }
+  .back:hover { color: var(--text-primary); }
+
+  .card {
+    width: 100%;
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0;
+  }
+
+  .eyebrow {
+    font-size: 9px;
+    letter-spacing: 3px;
+    opacity: 0.4;
+    margin-bottom: 28px;
+  }
+
+  .checkmark {
+    width: 56px;
+    height: 56px;
+    border: 1px solid rgba(100,200,100,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: rgba(100,200,100,0.9);
+    margin-bottom: 28px;
+  }
+
+  h1 {
+    font-size: 48px;
+    letter-spacing: -1px;
+    margin: 0 0 16px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    line-height: 1.7;
+    opacity: 0.65;
+    margin: 0 0 40px;
+  }
+
+  .summary {
+    width: 100%;
+    border: 1px solid var(--border-subtle);
+    padding: 20px 24px;
+    margin-bottom: 40px;
+    text-align: left;
+  }
+  .summary-title {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    opacity: 0.4;
+    margin-bottom: 14px;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 8px 0;
+    font-size: 12px;
+  }
+  .summary-grid span:nth-child(odd) { opacity: 0.45; }
+
+  .steps {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 48px;
+    text-align: left;
+  }
+  .step {
+    display: flex;
+    gap: 20px;
+    padding: 20px 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .step-n {
+    font-size: 10px;
+    letter-spacing: 1px;
+    opacity: 0.3;
+    padding-top: 2px;
+    flex-shrink: 0;
+    width: 24px;
+  }
+  .step-title { font-size: 12px; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .step-body  { font-size: 11px; line-height: 1.65; opacity: 0.55; }
+
+  .cta {
+    display: inline-block;
+    padding: 13px 32px;
+    border: 1px solid var(--text-45);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    transition: background 0.15s;
+  }
+  .cta:hover { background: var(--text-14); }
+</style>

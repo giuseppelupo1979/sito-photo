@@ -1,0 +1,76 @@
+---
+import "../styles/tokens.css";
+
+import { getSettings } from "../lib/db";
+
+interface Props {
+	title?: string;
+}
+
+const { title = "Giuseppe Lupo — fotografo" } = Astro.props;
+const settings = getSettings();
+---
+
+<!doctype html>
+<html lang="it">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&display=swap" rel="stylesheet" />
+	</head>
+	<body data-email={settings.email} data-ig={settings.ig_handle}>
+		<div class="film-grain"></div>
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--accent: 235, 64, 52;
+		--accent-rgb: 235, 64, 52;
+	}
+	html {
+		font-family: var(--font-mono);
+		background: var(--bg-home);
+		overflow-x: hidden;
+	}
+
+	body {
+		margin: 0;
+		padding: 0;
+		position: relative;
+	}
+
+	.film-grain {
+		position: fixed;
+		top: -100%;
+		left: -100%;
+		width: 300%;
+		height: 300%;
+		background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+		background-repeat: repeat;
+		opacity: 0.04;
+		pointer-events: none;
+		z-index: 9999;
+		animation: grain 8s steps(10) infinite;
+	}
+
+	@keyframes grain {
+		0%, 100% { transform:translate(0, 0) }
+		10% { transform:translate(-5%, -10%) }
+		20% { transform:translate(-15%, 5%) }
+		30% { transform:translate(7%, -25%) }
+		40% { transform:translate(-5%, 25%) }
+		50% { transform:translate(-15%, 10%) }
+		60% { transform:translate(15%, 0%) }
+		70% { transform:translate(0%, 15%) }
+		80% { transform:translate(3%, 35%) }
+		90% { transform:translate(-10%, 10%) }
+	}
+</style>

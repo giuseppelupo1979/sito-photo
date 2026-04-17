@@ -1,0 +1,56 @@
+:root {
+  /* Colors */
+  --bg-home: #141210;
+  --bg-story: #08070a;
+  --bg-frame: #1a1714;
+  --text-primary: #e8e2d4;
+  --text-85: rgba(232,226,212,0.85);
+  --text-75: rgba(232,226,212,0.75);
+  --text-60: rgba(232,226,212,0.60);
+  --text-45: rgba(232,226,212,0.45);
+  --text-14: rgba(232,226,212,0.14);
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-dashed: rgba(255,255,255,0.10);
+  --accent-red: #d93a2b;
+  --tape-crema: rgba(232,226,212,0.88);
+
+  /* Typography */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-serif: "Fraunces", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-script: "Brush Script MT", cursive;
+
+  /* Spacing & Sizing */
+  --header-h: 108px;
+  --footer-h: 90px;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-home);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, .serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.dotted-border-b {
+  border-bottom: 1px dashed var(--border-dashed);
+}
+
+.dotted-border-t {
+  border-top: 1px dashed var(--border-dashed);
+}

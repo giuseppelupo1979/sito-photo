@@ -1,0 +1,118 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { checkPassword, setSession, isAuthenticated } from '../../lib/auth';
+
+if (isAuthenticated(Astro.cookies)) {
+  return Astro.redirect('/admin/dashboard');
+}
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const password = data.get('password') as string;
+
+  if (await checkPassword(password)) {
+    setSession(Astro.cookies);
+    return Astro.redirect('/admin/dashboard');
+  } else {
+    error = 'Password non corretta.';
+  }
+}
+---
+
+<BaseLayout title="Login Amministratore — Giuseppe Lupo">
+  <div class="login-container">
+    <div class="login-box">
+      <div class="mono-label">ACCESSO RISERVATO</div>
+      <h1 class="serif">Bentornato, Giuseppe.</h1>
+      
+      <form method="POST">
+        <input 
+          type="password" 
+          name="password" 
+          placeholder="Inserisci password..." 
+          required 
+          autofocus 
+        />
+        {error && <div class="error">{error}</div>}
+        <button type="submit">ENTRA ➔</button>
+      </form>
+      
+      <a href="/" class="back-link">← TORNA AL SITO</a>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .login-container {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-home);
+    color: var(--text-primary);
+  }
+  .login-box {
+    width: 100%;
+    max-width: 400px;
+    padding: 40px;
+    border: 1px solid var(--border-subtle);
+  }
+  .mono-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.5;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-size: 32px;
+    margin-top: 0;
+    margin-bottom: 32px;
+    letter-spacing: -0.5px;
+  }
+  input {
+    width: 100%;
+    background: var(--bg-frame);
+    border: 1px solid var(--border-subtle);
+    padding: 12px 16px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  input:focus {
+    border-color: var(--text-45);
+  }
+  button {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--text-45);
+    color: var(--text-primary);
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  button:hover {
+    background: var(--text-14);
+  }
+  .error {
+    color: var(--accent-red);
+    font-size: 11px;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .back-link {
+    display: block;
+    text-align: center;
+    margin-top: 24px;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-45);
+    text-decoration: none;
+  }
+</style>

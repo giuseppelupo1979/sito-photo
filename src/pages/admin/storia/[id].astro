@@ -1,0 +1,501 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { isAuthenticated } from '../../../lib/auth';
+import db from '../../../lib/db';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+if (!isAuthenticated(Astro.cookies)) {
+  return Astro.redirect('/admin/login');
+}
+
+const { id } = Astro.params;
+const story = db.prepare('SELECT * FROM stories WHERE id = ?').get(id);
+
+if (!story) {
+  return Astro.redirect('/admin/dashboard');
+}
+
+let message = '';
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const action = formData.get('action');
+
+  if (action === 'update_story') {
+    const title = formData.get('title') as string;
+    const cat = formData.get('cat') as string;
+    const loc = formData.get('loc') as string;
+    const year = parseInt(formData.get('year') as string);
+    const blurb = formData.get('blurb') as string;
+
+    db.prepare('UPDATE stories SET title = ?, cat = ?, loc = ?, year = ?, blurb = ? WHERE id = ?')
+      .run(title, cat, loc, year, blurb, id);
+    
+    // Refresh story data
+    const updatedStory = db.prepare('SELECT * FROM stories WHERE id = ?').get(id);
+    if (updatedStory) Object.assign(story, updatedStory);
+    message = 'Storia aggiornata con successo.';
+  }
+
+  if (action === 'update_frames') {
+    const frameIds = formData.getAll('frame_ids') as string[];
+    const updateFrame = db.prepare('UPDATE frames SET n = ?, lbl = ?, is_star = ? WHERE id = ?');
+    
+    for (const fid of frameIds) {
+      const n = formData.get(`n_${fid}`) as string;
+      const lbl = formData.get(`lbl_${fid}`) as string;
+      const isStar = formData.get(`star_${fid}`) === 'on' ? 1 : 0;
+      updateFrame.run(n, lbl, isStar, fid);
+    }
+    message = 'Cambiamenti salvati.';
+  }
+
+  if (action === 'delete_single') {
+    const frameId = formData.get('frame_id') as string;
+    const frame = db.prepare('SELECT src FROM frames WHERE id = ?').get(frameId);
+    
+    if (frame) {
+      // Delete file from disk
+      try {
+        const filePath = path.join(process.cwd(), 'public', frame.src);
+        await fs.unlink(filePath);
+      } catch {}
+      
+      db.prepare('DELETE FROM frames WHERE id = ?').run(frameId);
+      message = 'Fotogramma eliminato.';
+    }
+  }
+
+  if (action === 'reorder_frames') {
+    const order = (formData.get('order') as string ?? '').split(',').filter(Boolean);
+    const update = db.prepare('UPDATE frames SET order_idx = ? WHERE id = ?');
+    order.forEach((fid, idx) => update.run(idx, fid));
+    message = 'Ordine salvato.';
+  }
+
+  if (action === 'delete_multiple') {
+    const ids = formData.getAll('selected_frames') as string[];
+    
+    if (ids.length > 0) {
+      for (const fid of ids) {
+        const frame = db.prepare('SELECT src FROM frames WHERE id = ?').get(fid);
+        if (frame) {
+          try {
+            const filePath = path.join(process.cwd(), 'public', frame.src);
+            await fs.unlink(filePath);
+          } catch {}
+        }
+      }
+      
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`DELETE FROM frames WHERE id IN (${placeholders})`).run(...ids);
+      message = `${ids.length} fotogrammi eliminati.`;
+    }
+  }
+}
+
+const frames = db.prepare('SELECT * FROM frames WHERE story_id = ? ORDER BY order_idx, id').all(id);
+---
+
+<BaseLayout title={`${story.title} — Admin`}>
+  <div class="admin-wrapper">
+    <nav class="admin-nav dotted-border-b">
+      <div class="mono-logo">G. LUPO / ADMIN</div>
+      <div class="nav-links">
+        <a href="/admin/dashboard">← DASHBOARD</a>
+        <a href={`/storie/${story.slug}`} target="_blank">ANTEPRIMA</a>
+        <a href="/admin/logout" class="logout-link">ESCI</a>
+        <a href="/" class="home-link">← SITO</a>
+      </div>
+    </nav>
+
+    <main class="admin-main">
+      <div class="header-section">
+        <div class="eyebrow">{story.cat} ∙ {story.loc} ∙ {story.year}</div>
+        <h1 class="serif">{story.title}</h1>
+        <p class="frame-count">{frames.length} fotogrammi</p>
+        {message && <div class="alert-success">{message}</div>}
+      </div>
+
+      <section class="admin-card story-settings-card">
+        <div class="card-header mono">◆ IMPOSTAZIONI STORIA</div>
+        <form method="POST" class="admin-form">
+          <input type="hidden" name="action" value="update_story" />
+          <div class="row">
+            <div class="field-group">
+              <label>TITOLO</label>
+              <input type="text" name="title" value={story.title} required />
+            </div>
+            <div class="field-group">
+              <label>CATEGORIA</label>
+              <input type="text" name="cat" value={story.cat} required />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field-group">
+              <label>LUOGO</label>
+              <input type="text" name="loc" value={story.loc} required />
+            </div>
+            <div class="field-group" style="flex: 0 0 120px;">
+              <label>ANNO</label>
+              <input type="number" name="year" value={story.year} required />
+            </div>
+          </div>
+          <div class="field-group">
+            <label>DESCRIZIONE / BLURB</label>
+            <textarea name="blurb" rows="3">{story.blurb}</textarea>
+          </div>
+          <button type="submit" class="save-btn">AGGIORNA STORIA</button>
+        </form>
+      </section>
+
+      <form method="POST" id="frames-form">
+        <input type="hidden" name="action" value="update_frames" />
+        
+        {/* Toolbar */}
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <label class="select-all-label">
+              <input type="checkbox" id="select-all" />
+              <span>SELEZIONA TUTTI</span>
+            </label>
+            <span class="selected-count" id="selected-count"></span>
+          </div>
+          <div class="toolbar-right">
+            <button type="submit" class="save-btn primary">SALVA TUTTE LE MODIFICHE</button>
+            <button type="button" class="delete-bulk-btn" id="delete-bulk-btn" disabled>
+              ELIMINA SELEZIONATI
+            </button>
+          </div>
+        </div>
+
+        {/* Frames Grid */}
+        <div class="frames-grid">
+          {frames.map((f) => {
+            const exif = f.camera_data ? JSON.parse(f.camera_data) : null;
+            return (
+              <div class="frame-card" data-frame-id={f.id} draggable="true">
+                <div class="drag-handle" title="Trascina per riordinare">⠿</div>
+                <input type="hidden" name="frame_ids" value={String(f.id)} />
+                <div class="frame-checkbox">
+                  <input type="checkbox" name="selected_frames" value={String(f.id)} class="frame-select" />
+                </div>
+                
+                <div class="frame-image">
+                  {f.src ? (
+                    <img src={f.src} alt={f.lbl || f.n} loading="lazy" />
+                  ) : (
+                    <div class="placeholder" />
+                  )}
+                </div>
+                
+                <div class="frame-info">
+                  <div class="frame-edit-row">
+                    <input type="text" name={`n_${f.id}`} value={f.n} class="frame-n-input" title="N° Fotogramma" />
+                    <label class="star-toggle">
+                      <input type="checkbox" name={`star_${f.id}`} checked={f.is_star === 1} />
+                      <span class="star-icon">★</span>
+                    </label>
+                  </div>
+                  <textarea 
+                    name={`lbl_${f.id}`} 
+                    class="frame-lbl-input" 
+                    placeholder="Titolo / Descrizione foto"
+                    rows="2"
+                  >{f.lbl}</textarea>
+                  
+                  {exif && (
+                    <div class="frame-exif">
+                      {exif.Model && <span>{exif.Model}</span>}
+                      {exif.ExposureTime && <span>1/{Math.round(1/exif.ExposureTime)}s</span>}
+                      {exif.ISO && <span>ISO {exif.ISO}</span>}
+                    </div>
+                  )}
+                </div>
+
+                <div class="frame-actions-overlay">
+                  <button type="button" class="delete-single-trigger" data-frame-id={f.id} title="Elimina">✕</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </form>
+
+      {/* Single deletion hidden form */}
+      <form method="POST" id="single-delete-form" style="display:none">
+        <input type="hidden" name="action" value="delete_single" />
+        <input type="hidden" name="frame_id" id="delete-frame-id" />
+      </form>
+
+      {/* Reorder hidden form */}
+      <form method="POST" id="reorder-form" style="display:none">
+        <input type="hidden" name="action" value="reorder_frames" />
+        <input type="hidden" name="order" id="reorder-input" />
+      </form>
+
+      {frames.length === 0 && (
+        <div class="empty-state">
+          <p>Nessun fotogramma in questa storia.</p>
+          <a href="/admin/dashboard">Torna alla dashboard per caricare foto.</a>
+        </div>
+      )}
+    </main>
+  </div>
+</BaseLayout>
+
+<script>
+  // Select All toggle
+  const selectAll = document.getElementById('select-all') as HTMLInputElement;
+  const checkboxes = document.querySelectorAll<HTMLInputElement>('.frame-select');
+  const countEl = document.getElementById('selected-count')!;
+  const bulkBtn = document.getElementById('delete-bulk-btn') as HTMLButtonElement;
+  const framesForm = document.getElementById('frames-form') as HTMLFormElement;
+  const singleDeleteForm = document.getElementById('single-delete-form') as HTMLFormElement;
+  const deleteFrameIdInput = document.getElementById('delete-frame-id') as HTMLInputElement;
+
+  function updateCount() {
+    const checked = document.querySelectorAll<HTMLInputElement>('.frame-select:checked');
+    const n = checked.length;
+    countEl.textContent = n > 0 ? `${n} selezionati` : '';
+    bulkBtn.disabled = n === 0;
+    
+    document.querySelectorAll('.frame-card').forEach(card => card.classList.remove('selected'));
+    checked.forEach(cb => cb.closest('.frame-card')?.classList.add('selected'));
+  }
+
+  selectAll?.addEventListener('change', () => {
+    checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+    updateCount();
+  });
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+
+  bulkBtn?.addEventListener('click', () => {
+    const checked = document.querySelectorAll<HTMLInputElement>('.frame-select:checked');
+    if (checked.length === 0) return;
+    
+    if (confirm(`Eliminare ${checked.length} fotogrammi?`)) {
+      const hiddenAction = document.createElement('input');
+      hiddenAction.type = 'hidden';
+      hiddenAction.name = 'action';
+      hiddenAction.value = 'delete_multiple';
+      framesForm.appendChild(hiddenAction);
+      framesForm.submit();
+    }
+  });
+
+  document.querySelectorAll('.delete-single-trigger').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLElement).dataset.frameId;
+      if (id && confirm('Eliminare questo fotogramma?')) {
+        deleteFrameIdInput.value = id;
+        singleDeleteForm.submit();
+      }
+    });
+  });
+
+  // ── Drag-and-drop reorder ──
+  const grid = document.querySelector('.frames-grid') as HTMLElement;
+  const reorderForm = document.getElementById('reorder-form') as HTMLFormElement;
+  const reorderInput = document.getElementById('reorder-input') as HTMLInputElement;
+  let dragSrc: HTMLElement | null = null;
+
+  grid.addEventListener('dragstart', (e) => {
+    dragSrc = (e.target as HTMLElement).closest('.frame-card');
+    if (dragSrc) dragSrc.classList.add('dragging');
+  });
+
+  grid.addEventListener('dragend', () => {
+    dragSrc?.classList.remove('dragging');
+    document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('drag-over'));
+    dragSrc = null;
+  });
+
+  grid.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const target = (e.target as HTMLElement).closest('.frame-card') as HTMLElement | null;
+    if (target && target !== dragSrc) {
+      document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('drag-over'));
+      target.classList.add('drag-over');
+    }
+  });
+
+  grid.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const target = (e.target as HTMLElement).closest('.frame-card') as HTMLElement | null;
+    if (!target || !dragSrc || target === dragSrc) return;
+
+    const cards = Array.from(grid.querySelectorAll('.frame-card'));
+    const srcIdx = cards.indexOf(dragSrc);
+    const tgtIdx = cards.indexOf(target);
+
+    if (srcIdx < tgtIdx) target.after(dragSrc);
+    else target.before(dragSrc);
+
+    document.querySelectorAll('.frame-card').forEach(c => c.classList.remove('drag-over'));
+
+    const newOrder = Array.from(grid.querySelectorAll('.frame-card'))
+      .map(c => (c as HTMLElement).dataset.frameId)
+      .filter(Boolean)
+      .join(',');
+    reorderInput.value = newOrder;
+    reorderForm.submit();
+  });
+</script>
+
+<style>
+  .admin-wrapper { min-height: 100vh; background: var(--bg-home); }
+  .admin-nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 44px; }
+  .mono-logo { font-size: 13px; letter-spacing: 2.5px; font-weight: 500; }
+  .nav-links { display: flex; gap: 24px; font-size: 10px; letter-spacing: 2px; }
+  .nav-links a { color: var(--text-45); text-decoration: none; }
+  .logout-link { color: var(--accent-red) !important; }
+  .home-link { color: var(--text-primary) !important; border: 1px solid var(--text-45); padding: 4px 10px; font-size: 9px; letter-spacing: 2px; }
+
+  .admin-main { padding: 40px 44px; max-width: 1400px; margin: 0 auto; padding-bottom: 300px; }
+  
+  .header-section { margin-bottom: 44px; }
+  .eyebrow { font-size: 10px; letter-spacing: 3px; opacity: 0.5; margin-bottom: 12px; }
+  h1 { font-size: 56px; margin: 0; letter-spacing: -1.5px; }
+
+  .story-settings-card {
+    background: rgba(232,226,212,0.02);
+    margin-bottom: 80px;
+    padding: 32px;
+    border: 1px solid var(--border-subtle);
+  }
+  .field-group { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .field-group label { font-size: 9px; letter-spacing: 2px; opacity: 0.4; }
+  .admin-form .row { display: flex; gap: 24px; margin-bottom: 24px; }
+  input, select, textarea {
+    background: #000;
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 12px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--text-45); }
+  textarea { resize: vertical; }
+
+  .toolbar {
+    position: sticky;
+    top: 0;
+    background: var(--bg-home);
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 32px;
+  }
+  .toolbar-right { display: flex; gap: 16px; }
+
+  .save-btn {
+    background: transparent;
+    border: 1px solid var(--text-45);
+    color: var(--text-primary);
+    padding: 10px 24px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+  .save-btn.primary { background: var(--text-primary); color: #000; border: none; font-weight: 600; }
+  .save-btn:hover { border-color: var(--text-primary); }
+
+  .frames-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .frame-card {
+    border: 1px solid var(--border-subtle);
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+  .frame-card.selected { border-color: var(--accent-red); }
+
+  .frame-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--bg-frame);
+  }
+  .frame-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.85;
+    transition: opacity 0.2s;
+  }
+  .frame-card:hover .frame-image img { opacity: 1; }
+
+  .frame-info { padding: 20px; }
+  .frame-edit-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .frame-n-input { font-size: 11px !important; padding: 4px 8px !important; width: 60px !important; text-align: center; }
+  .frame-lbl-input { width: 100%; font-size: 13px !important; padding: 10px !important; background: rgba(255,255,255,0.03) !important; margin-bottom: 12px; }
+
+  .star-toggle { cursor: pointer; display: flex; align-items: center; }
+  .star-toggle input { display: none; }
+  .star-icon { font-size: 20px; color: var(--text-14); transition: color 0.2s; }
+  .star-toggle input:checked + .star-icon { color: var(--accent-red); }
+
+  .frame-exif { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; display: flex; gap: 12px; opacity: 0.3; font-size: 9px; letter-spacing: 1px; }
+
+  .drag-handle {
+    position: absolute; top: 12px; left: 42px; z-index: 6;
+    color: var(--text-45); font-size: 16px; cursor: grab; user-select: none;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .frame-card:hover .drag-handle { opacity: 1; }
+  .frame-card.dragging { opacity: 0.4; border-style: dashed; }
+  .frame-card.drag-over { border-color: var(--text-primary) !important; border-style: solid; }
+
+  .frame-actions-overlay { position: absolute; top: 12px; right: 12px; }
+  .delete-single-trigger {
+    background: rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-45);
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+  }
+  .frame-card:hover .delete-single-trigger { opacity: 1; }
+  .delete-single-trigger:hover { background: var(--accent-red); color: #fff; border-color: var(--accent-red); }
+
+  .frame-checkbox {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+  }
+  .frame-select {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-red);
+    cursor: pointer;
+  }
+
+  .alert-success {
+    margin-top: 16px;
+    background: rgba(232,226,212,0.05);
+    border: 1px solid var(--text-14);
+    padding: 12px 20px;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
+  .empty-state { text-align: center; padding: 80px 0; opacity: 0.5; font-size: 13px; }
+  .empty-state a { color: var(--text-primary); text-decoration: underline; margin-top: 8px; display: inline-block; }
+</style>
