@@ -108,6 +108,14 @@ if (Astro.request.method === 'POST') {
       db.prepare('UPDATE print_requests SET status = ? WHERE id = ?').run(status, reqId);
     }
   }
+
+  if (action === 'delete_print_request') {
+    const reqId = formData.get('req_id') as string;
+    if (reqId) {
+      db.prepare('DELETE FROM print_requests WHERE id = ?').run(reqId);
+      message = 'Richiesta eliminata.';
+    }
+  }
 }
 
 const stories = db.prepare('SELECT * FROM stories').all() as any[];
@@ -229,6 +237,11 @@ const printRequests = db.prepare('SELECT * FROM print_requests ORDER BY created_
                       <option value="closed" selected={r.status === 'closed'}>Chiuso</option>
                     </select>
                   </form>
+                  <form method="POST" class="delete-req-form">
+                    <input type="hidden" name="action" value="delete_print_request" />
+                    <input type="hidden" name="req_id" value={String(r.id)} />
+                    <button type="submit" class="delete-req-btn" title="Elimina richiesta">✕</button>
+                  </form>
                 </div>
               </div>
             ))}
@@ -242,9 +255,13 @@ const printRequests = db.prepare('SELECT * FROM print_requests ORDER BY created_
 <script>
   document.querySelectorAll('.delete-story-form').forEach(form => {
     form.addEventListener('submit', (e) => {
-      if (!confirm('ELIMINARE QUESTA STORIA?')) {
-        e.preventDefault();
-      }
+      if (!confirm('ELIMINARE QUESTA STORIA?')) e.preventDefault();
+    });
+  });
+
+  document.querySelectorAll('.delete-req-form').forEach(form => {
+    form.addEventListener('submit', (e) => {
+      if (!confirm('Eliminare questa richiesta di stampa?')) e.preventDefault();
     });
   });
 </script>
@@ -541,4 +558,10 @@ const printRequests = db.prepare('SELECT * FROM print_requests ORDER BY created_
     color: var(--text-primary); font-family: var(--font-mono);
     font-size: 9px; letter-spacing: 1px; padding: 4px 8px; cursor: pointer; outline: none;
   }
+  .delete-req-form { display: flex; }
+  .delete-req-btn {
+    background: none; border: 1px solid transparent; color: var(--text-45);
+    font-size: 11px; cursor: pointer; padding: 3px 7px; transition: all 0.15s;
+  }
+  .delete-req-btn:hover { color: var(--accent-red); border-color: rgba(217,58,43,0.3); }
 </style>
