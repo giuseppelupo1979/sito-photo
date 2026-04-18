@@ -14,9 +14,9 @@ let sheet = frames.map(f => ({
   storyCat: stories.find(s => s.id === f.story_id)?.cat || ''
 }));
 
-// Pad to 24 if necessary
-while (sheet.length < 24 && sheet.length > 0) {
-  sheet.push({ ...sheet[sheet.length % frames.length], n: '—' });
+// Pad to 24 with empty placeholder cells (no duplicates)
+while (sheet.length < 24) {
+  sheet.push({ n: '—', src: null, lbl: '', storySlug: '', storyCat: '', is_star: 0, story_id: null });
 }
 ---
 
